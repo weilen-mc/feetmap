@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <h2>Register</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="form-group">
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn">Register</button>
+    </form>
+    <p style="margin-top: 1rem; text-align: center;">Already have an account? <a href="{% url 'login' %}"
+            style="color: #e94560;">Login here</a>.</p>
+</div>
+{% endblock %}

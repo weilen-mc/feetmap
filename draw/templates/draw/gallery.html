@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .gallery-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .size-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .gallery-grid {
+        display: grid;
+        gap: 1.5rem;
+        /* Default column width but dynamically changed via JS */
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    .gallery-item {
+        background: #fff;
+        border-radius: 8px;
+        padding: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .gallery-item .img-wrapper {
+        width: 100%;
+        position: relative;
+        background: #f0f0f0;
+        /* Checkered or light bg to show transparency */
+        border-radius: 4px;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        /* Adjust to match canvas aspect ratio */
+    }
+
+    /* We show both the outline and the drawing for context if needed, 
+       but transparency is key. Let's just show the drawing and outline overlapped */
+    .gallery-item .outline-img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0.2;
+    }
+
+    .gallery-item .drawing-img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        z-index: 10;
+    }
+
+    .gallery-item .info {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #555;
+    }
+</style>
+
+<div class="gallery-header">
+    <h2>Your Drawings</h2>
+    <div class="size-controls">
+        <label for="gridSize">Grid Size:</label>
+        <input type="range" id="gridSize" min="100" max="600" value="200">
+    </div>
+</div>
+
+{% if drawings %}
+<div class="gallery-grid" id="galleryGrid">
+    {% for drawing in drawings %}
+    <div class="gallery-item">
+        <div class="img-wrapper">
+            <img src="{{ drawing.outline.image.url }}" class="outline-img" alt="Outline">
+            <img src="{{ drawing.image.url }}" class="drawing-img" alt="Drawing">
+        </div>
+        <div class="info">
+            {{ drawing.outline.name }}<br>
+            {{ drawing.created_at|date:"M d, Y H:i" }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div style="padding: 2rem; text-align: center; color: #888; background: #fff; border-radius: 8px;">
+    No drawings saved yet. <a href="{% url 'index' %}" style="color: #e94560;">Start drawing</a>!
+</div>
+{% endif %}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const slider = document.getElementById('gridSize');
+        const grid = document.getElementById('galleryGrid');
+
+        if (slider && grid) {
+            slider.addEventListener('input', function (e) {
+                const size = e.target.value;
+                grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${size}px, 1fr))`;
+            });
+            // trigger once on load
+            grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${slider.value}px, 1fr))`;
+        }
+    });
+</script>
+{% endblock %}
