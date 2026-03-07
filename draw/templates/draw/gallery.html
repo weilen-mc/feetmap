@@ -226,6 +226,70 @@
         border: 2px solid #fff;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
+
+    /* Bulk Actions Styles */
+    .bulk-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-left: 1rem;
+        margin-right: auto;
+    }
+
+    .bulk-btn {
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: background 0.2s, opacity 0.2s;
+    }
+
+    .bulk-btn-delete {
+        background: #ff4d4d;
+        color: white;
+    }
+
+    .bulk-btn-delete:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    .bulk-btn-download {
+        background: #4caf50;
+        color: white;
+    }
+
+    .bulk-btn-download:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    .select-item-checkbox {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 20px;
+        height: 20px;
+        z-index: 100;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .gallery-item:hover .select-item-checkbox,
+    .select-item-checkbox:checked {
+        opacity: 1;
+    }
+
+    .gallery-item.selected {
+        outline: 3px solid #e94560;
+    }
 </style>
 
 <!-- Load drawings data -->
@@ -277,6 +341,14 @@
 
 <div class="gallery-header">
     <h2>Your Drawings</h2>
+    <div class="bulk-controls">
+        <div class="checkbox-group" style="font-size: 0.9rem;">
+            <input type="checkbox" id="selectAll">
+            <label for="selectAll" style="margin: 0;">Select All</label>
+        </div>
+        <button id="btnBulkDelete" class="bulk-btn bulk-btn-delete" disabled>Delete</button>
+        <button id="btnBulkDownload" class="bulk-btn bulk-btn-download" disabled>Download</button>
+    </div>
     <div class="size-controls">
         <label for="gridSize">Grid Size:</label>
         <input type="range" id="gridSize" min="100" max="600" value="200">
@@ -288,6 +360,7 @@
     {% for drawing in drawings %}
     <div class="gallery-item">
         <div class="img-wrapper">
+            <input type="checkbox" class="select-item-checkbox" data-id="{{ drawing.id }}">
             <img src="{{ drawing.outline.image.url }}" class="outline-img" alt="Outline">
             <img src="{{ drawing.image.url }}" class="drawing-img" alt="Drawing">
         </div>
@@ -563,6 +636,106 @@
             currentFrame = parseInt(e.target.value);
             pauseVideo(); // pause on manual scrub
             drawFrame(currentFrame);
+        });
+
+        // --- Bulk Actions Logic ---
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const itemCheckboxes = document.querySelectorAll('.select-item-checkbox');
+        const btnBulkDelete = document.getElementById('btnBulkDelete');
+        const btnBulkDownload = document.getElementById('btnBulkDownload');
+
+        function updateBulkButtons() {
+            const selectedCount = document.querySelectorAll('.select-item-checkbox:checked').length;
+            const hasSelection = selectedCount > 0;
+            btnBulkDelete.disabled = !hasSelection;
+            btnBulkDownload.disabled = !hasSelection;
+            btnBulkDelete.textContent = `Delete (${selectedCount})`;
+            btnBulkDownload.textContent = `Download (${selectedCount})`;
+
+            // Update Select All state
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = selectedCount === itemCheckboxes.length && itemCheckboxes.length > 0;
+            }
+
+            // Update gallery item visuals
+            itemCheckboxes.forEach(cb => {
+                const item = cb.closest('.gallery-item');
+                if (cb.checked) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function () {
+                itemCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateBulkButtons();
+            });
+        }
+
+        itemCheckboxes.forEach(cb => {
+            cb.addEventListener('change', updateBulkButtons);
+        });
+
+        btnBulkDelete.addEventListener('click', function () {
+            const selectedIds = Array.from(document.querySelectorAll('.select-item-checkbox:checked'))
+                .map(cb => cb.dataset.id);
+
+            if (selectedIds.length === 0) return;
+
+            if (confirm(`Are you sure you want to delete ${selectedIds.length} drawings?`)) {
+                fetch("{% url 'bulk_delete' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ drawing_ids: selectedIds })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert("Error deleting drawings: " + data.error);
+                        }
+                    })
+                    .catch(err => console.error("Error bulk deleting:", err));
+            }
+        });
+
+        btnBulkDownload.addEventListener('click', function () {
+            const selectedIds = Array.from(document.querySelectorAll('.select-item-checkbox:checked'))
+                .map(cb => cb.dataset.id);
+
+            if (selectedIds.length === 0) return;
+
+            // Use a form to trigger a regular download response
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'bulk_download' %}";
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = '{{ csrf_token }}';
+            form.appendChild(csrfInput);
+
+            selectedIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'drawing_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
         });
 
         // Init

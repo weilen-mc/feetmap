@@ -2,9 +2,13 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import json
 import base64
+import io
+import zipfile
+import os
+from PIL import Image
 from django.core.files.base import ContentFile
 from .forms import UserRegistrationForm, OutlineUploadForm
 from .models import UserProfile, Outline, Drawing
@@ -136,3 +140,87 @@ def gallery_view(request):
         'drawings': drawings,
         'drawings_json': drawings_data
     })
+
+@login_required
+def bulk_delete_drawings(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            drawing_ids = data.get('drawing_ids', [])
+            Drawing.objects.filter(id__in=drawing_ids, user=request.user).delete()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+    return JsonResponse({"success": False}, status=400)
+
+@login_required
+def bulk_download_drawings(request):
+    if request.method == 'POST':
+        try:
+            drawing_ids = request.POST.getlist('drawing_ids')
+            if not drawing_ids:
+                return HttpResponse("No drawings selected", status=400)
+            
+            drawings = Drawing.objects.filter(id__in=drawing_ids, user=request.user)
+            
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, 'w') as zf:
+                for drawing in drawings:
+                    # Target size for compositing
+                    target_w, target_h = 800, 600
+                    
+                    # Create white background
+                    composite = Image.new("RGBA", (target_w, target_h), (255, 255, 255, 255))
+                    
+                    # 1. Process Outline (Low Opacity, Contain aspect ratio)
+                    if drawing.outline and drawing.outline.image:
+                        outline_path = drawing.outline.image.path
+                        with Image.open(outline_path) as outline:
+                            outline = outline.convert("RGBA")
+                            
+                            # Aspect ratio calculations (Contain)
+                            img_w, img_h = outline.size
+                            img_aspect = img_w / img_h
+                            target_aspect = target_w / target_h
+                            
+                            if img_aspect > target_aspect:
+                                draw_w = target_w
+                                draw_h = int(target_w / img_aspect)
+                                x = 0
+                                y = (target_h - draw_h) // 2
+                            else:
+                                draw_h = target_h
+                                draw_w = int(target_h * img_aspect)
+                                x = (target_w - draw_w) // 2
+                                y = 0
+                            
+                            outline_resized = outline.resize((draw_w, draw_h), Image.Resampling.LANCZOS)
+                            
+                            # Apply 0.2 opacity (same as gallery/index)
+                            alpha = outline_resized.getchannel('A')
+                            new_alpha = alpha.point(lambda p: int(p * 0.2))
+                            outline_resized.putalpha(new_alpha)
+                            
+                            composite.paste(outline_resized, (x, y), outline_resized)
+                    
+                    # 2. Process Drawing
+                    with Image.open(drawing.image.path) as drawing_img:
+                        drawing_img = drawing_img.convert("RGBA")
+                        # Paste drawing on top (it's already 800x600)
+                        composite.paste(drawing_img, (0, 0), drawing_img)
+                    
+                    # 3. Save to memory and then to zip
+                    img_io = io.BytesIO()
+                    composite.save(img_io, format='PNG')
+                    img_io.seek(0)
+                    
+                    filename = os.path.basename(drawing.image.name)
+                    zf.writestr(f"{drawing.id}_{filename}", img_io.read())
+            
+            buffer.seek(0)
+            response = HttpResponse(buffer, content_type='application/zip')
+            response['Content-Disposition'] = 'attachment; filename="drawings.zip"'
+            return response
+        except Exception as e:
+            return HttpResponse(f"Error creating zip: {e}", status=500)
+    return HttpResponse("Invalid request", status=400)
