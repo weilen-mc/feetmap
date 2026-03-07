@@ -412,6 +412,28 @@
             drawFrame(currentFrame);
         }
 
+        // Helper to draw image like object-fit: contain
+        function drawImageContain(img, targetCtx, targetWidth, targetHeight) {
+            const imgAspect = img.naturalWidth / img.naturalHeight;
+            const targetAspect = targetWidth / targetHeight;
+            let drawWidth, drawHeight, x, y;
+
+            if (imgAspect > targetAspect) {
+                // Image is wider
+                drawWidth = targetWidth;
+                drawHeight = targetWidth / imgAspect;
+                x = 0;
+                y = (targetHeight - drawHeight) / 2;
+            } else {
+                // Image is taller
+                drawHeight = targetHeight;
+                drawWidth = targetHeight * imgAspect;
+                x = (targetWidth - drawWidth) / 2;
+                y = 0;
+            }
+            targetCtx.drawImage(img, x, y, drawWidth, drawHeight);
+        }
+
         // 3. Drawing Logic Function
         function drawFrame(index) {
             if (currentDrawings.length === 0) return;
@@ -428,7 +450,7 @@
             const outlineImg = loadedImages[outlineUrl];
             if (outlineImg && outlineImg.complete && outlineImg.naturalHeight !== 0) {
                 ctx.globalAlpha = 0.2; // Set outline opacity
-                ctx.drawImage(outlineImg, 0, 0, canvas.width, canvas.height);
+                drawImageContain(outlineImg, ctx, canvas.width, canvas.height);
                 ctx.globalAlpha = 1.0; // Reset
             }
 
