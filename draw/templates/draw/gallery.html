@@ -74,148 +74,158 @@
         margin-top: 0.5rem;
         font-size: 0.85rem;
         color: #555;
+    }
 
-        .timelapse-section {
-            background: #fff;
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            margin-bottom: 2rem;
-            display: flex;
-            flex-direction: row;
-            gap: 2rem;
-            align-items: flex-start;
-        }
+    .timelapse-section {
+        background: #fff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+        display: flex;
+        flex-direction: row;
+        gap: 2rem;
+        align-items: flex-start;
+    }
 
-        .timelapse-controls {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            min-width: 250px;
-        }
+    .timelapse-controls {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        min-width: 250px;
+    }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
+    .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 
-        .control-group label {
-            font-weight: bold;
-            color: #333;
-        }
+    .control-group label {
+        font-weight: bold;
+        color: #333;
+    }
 
-        .control-group select,
-        .control-group input[type="range"] {
-            padding: 0.5rem;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
+    .control-group select,
+    .control-group input[type="range"] {
+        padding: 0.5rem;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
 
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: bold;
-            color: #333;
-            flex-direction: row;
-        }
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: bold;
+        color: #333;
+        flex-direction: row;
+    }
 
-        .checkbox-group input {
-            width: 1.2rem;
-            height: 1.2rem;
-        }
+    .checkbox-group input {
+        width: 1.2rem;
+        height: 1.2rem;
+    }
 
-        .timelapse-video-container {
-            flex: 2;
-            /* Half the slideshow width effectively, relative to controls */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            width: 100%;
-        }
+    .timelapse-video-container {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+    }
 
-        /* We use a container to maintain aspect ratio for the canvas */
-        .timelapse-canvas-wrapper {
-            width: 100%;
-            max-width: 600px;
-            aspect-ratio: 4/3;
-            background: #f0f0f0;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
-        }
+    .timelapse-canvas-wrapper {
+        width: 100%;
+        max-width: 600px;
+        aspect-ratio: 4/3;
+        background: #f0f0f0;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+    }
 
-        #timelapseCanvas {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
+    #timelapseCanvas {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
 
-        .video-controls {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            width: 100%;
-            max-width: 600px;
-        }
+    .video-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+        max-width: 600px;
+    }
 
-        .play-btn {
-            background: #e94560;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            transition: background 0.2s;
-        }
+    .seek-bar-row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+    }
 
-        .play-btn:hover {
-            background: #d13d56;
-        }
+    .play-btn {
+        background: #e94560;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        transition: background 0.2s;
+    }
 
-        .tl-seek-bar {
-            flex: 1;
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 8px;
-            background: #ddd;
-            border-radius: 4px;
-            outline: none;
-            cursor: pointer;
-        }
+    .play-btn:hover {
+        background: #d13d56;
+    }
 
-        .tl-seek-bar::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            background: #e94560;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
+    .tl-seek-bar {
+        flex: 1;
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100% !important;
+        height: 8px;
+        background: #ddd;
+        border-radius: 4px;
+        outline: none;
+        cursor: pointer;
+        padding: 0 !important;
+        /* Overriding possible global padding */
+        border: none !important;
+        /* Overriding possible global border */
+    }
 
-        .tl-seek-bar::-moz-range-thumb {
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            background: #e94560;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
+    .tl-seek-bar::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #e94560;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .tl-seek-bar::-moz-range-thumb {
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #e94560;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
 </style>
 
 <!-- Load drawings data -->
@@ -256,8 +266,10 @@
         </div>
 
         <div class="video-controls">
+            <div class="seek-bar-row">
+                <input type="range" class="tl-seek-bar" id="tlSeekBar" min="0" max="0" value="0">
+            </div>
             <button class="play-btn" id="tlPlayBtn">▶</button>
-            <input type="range" class="tl-seek-bar" id="tlSeekBar" min="0" max="0" value="0">
         </div>
     </div>
 </div>
