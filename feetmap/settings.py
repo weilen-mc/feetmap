@@ -139,11 +139,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Storage configuration: Use Cloudinary in production if CLOUDINARY_URL is present
 if env('CLOUDINARY_URL', default=None):
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME', default=''),
-        'API_KEY': env('CLOUDINARY_API_KEY', default=''),
-        'API_SECRET': env('CLOUDINARY_API_SECRET', default=''),
-    }
 else:
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
