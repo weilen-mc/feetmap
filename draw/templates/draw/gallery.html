@@ -319,9 +319,8 @@
             <label for="tlNormalizeBtn" style="margin: 0;">Normalize Opacity</label>
         </div>
 
-        <div style="font-size: 0.85rem; color: #666; margin-top: 1rem;">
-            Frame: <span id="tlFrameIndex">0 / 0</span>
-        </div>
+        <button id="btnDownloadTimelapse" class="btn" style="margin-top: 1rem; width: 100%;" disabled>Download
+            Video</button>
     </div>
 
     <div class="timelapse-video-container">
@@ -413,7 +412,8 @@
         const normalizeBtn = document.getElementById('tlNormalizeBtn');
         const playBtn = document.getElementById('tlPlayBtn');
         const seekBar = document.getElementById('tlSeekBar');
-        const frameIndexLabel = document.getElementById('tlFrameIndex');
+        const frameDateLabel = document.getElementById('tlFrameDate');
+        const btnDownloadTimelapse = document.getElementById('btnDownloadTimelapse');
         const canvas = document.getElementById('timelapseCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
@@ -522,7 +522,7 @@
             const outlineUrl = currentDrawings[0].outline_url;
             const outlineImg = loadedImages[outlineUrl];
             if (outlineImg && outlineImg.complete && outlineImg.naturalHeight !== 0) {
-                ctx.globalAlpha = 0.2; // Set outline opacity
+                ctx.globalAlpha = 0.4; // Increased outline opacity for better visibility
                 drawImageContain(outlineImg, ctx, canvas.width, canvas.height);
                 ctx.globalAlpha = 1.0; // Reset
             }
@@ -558,6 +558,21 @@
                     ctx.putImageData(imgData, 0, 0);
                 }
             }
+
+            // 4. Draw Date on Canvas (Lower Right)
+            const dateStr = currentDrawings[index].created_at.split(' ')[0]; // YYYY-MM-DD
+            ctx.save();
+            ctx.font = "bold 24px Arial";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.textAlign = "right";
+            ctx.textBaseline = "bottom";
+            // Background for text for better visibility
+            const textWidth = ctx.measureText(dateStr).width;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.fillRect(canvas.width - textWidth - 20, canvas.height - 45, textWidth + 10, 35);
+            ctx.fillStyle = "#333";
+            ctx.fillText(dateStr, canvas.width - 15, canvas.height - 15);
+            ctx.restore();
 
             updateProgressUI();
         }
@@ -600,11 +615,11 @@
         function updateProgressUI() {
             if (currentDrawings.length === 0) {
                 seekBar.value = 0;
-                frameIndexLabel.textContent = `0 / 0`;
+                btnDownloadTimelapse.disabled = true;
                 return;
             }
             seekBar.value = currentFrame;
-            frameIndexLabel.textContent = `${currentFrame + 1} / ${currentDrawings.length}`;
+            btnDownloadTimelapse.disabled = false;
         }
 
         function scrubTo(e) {
@@ -736,6 +751,74 @@
             document.body.appendChild(form);
             form.submit();
             document.body.removeChild(form);
+        });
+
+        // --- Video Download Logic ---
+        btnDownloadTimelapse.addEventListener('click', async function () {
+            if (currentDrawings.length === 0) return;
+
+            // Define supported MIME types, preferring MP4
+            const types = [
+                'video/mp4',
+                'video/webm;codecs=h264',
+                'video/webm;codecs=vp9',
+                'video/webm'
+            ];
+            let selectedType = types.find(t => MediaRecorder.isTypeSupported(t));
+
+            if (!selectedType) {
+                alert("Video recording is not supported in this browser.");
+                return;
+            }
+
+            const stream = canvas.captureStream(30); // 30 FPS
+            const recorder = new MediaRecorder(stream, {
+                mimeType: selectedType,
+                videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+            });
+            const chunks = [];
+
+            recorder.ondataavailable = e => {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
+
+            recorder.onstop = async () => {
+                const blob = new Blob(chunks, { type: selectedType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // Force .mp4 extension for clarity if it's an MP4 container/codec
+                const extension = selectedType.includes('mp4') || selectedType.includes('h264') ? 'mp4' : 'webm';
+                a.download = `timelapse_${outlineSelect.value}.${extension}`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            // Start playing from the beginning
+            currentFrame = 0;
+            drawFrame(currentFrame);
+            pauseVideo();
+
+            recorder.start();
+
+            playBtn.disabled = true;
+            btnDownloadTimelapse.disabled = true;
+            selectAllCheckbox.disabled = true;
+
+            const interval = setInterval(() => {
+                currentFrame++;
+                if (currentFrame >= currentDrawings.length) {
+                    clearInterval(interval);
+                    recorder.stop();
+                    currentFrame = currentDrawings.length - 1;
+                    drawFrame(currentFrame);
+                    playBtn.disabled = false;
+                    btnDownloadTimelapse.disabled = false;
+                    selectAllCheckbox.disabled = false;
+                } else {
+                    drawFrame(currentFrame);
+                }
+            }, 200); // 5 frames per second
         });
 
         // Init
