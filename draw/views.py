@@ -115,5 +115,23 @@ def save_favorites(request):
 
 @login_required
 def gallery_view(request):
-    drawings = Drawing.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'draw/gallery.html', {'drawings': drawings})
+    drawings_query = Drawing.objects.filter(user=request.user).order_by('created_at')
+    
+    # Serialize drawings for the frontend Timelapse feature
+    drawings_data = []
+    for d in drawings_query:
+        drawings_data.append({
+            'id': d.id,
+            'outline_id': d.outline.id,
+            'outline_name': d.outline.name,
+            'url': d.image.url,
+            'created_at': d.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    # Order by descending for the standard gallery view
+    drawings = drawings_query.order_by('-created_at')
+    
+    return render(request, 'draw/gallery.html', {
+        'drawings': drawings,
+        'drawings_json': drawings_data
+    })

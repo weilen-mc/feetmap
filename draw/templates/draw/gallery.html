@@ -74,8 +74,178 @@
         margin-top: 0.5rem;
         font-size: 0.85rem;
         color: #555;
-    }
+
+        .timelapse-section {
+            background: #fff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: row;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+
+        .timelapse-controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-width: 250px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .control-group select,
+        .control-group input[type="range"] {
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: bold;
+            color: #333;
+            flex-direction: row;
+        }
+
+        .checkbox-group input {
+            width: 1.2rem;
+            height: 1.2rem;
+        }
+
+        .timelapse-video-container {
+            flex: 2;
+            /* Half the slideshow width effectively, relative to controls */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        /* We use a container to maintain aspect ratio for the canvas */
+        .timelapse-canvas-wrapper {
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 4/3;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #timelapseCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .video-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .play-btn {
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: background 0.2s;
+        }
+
+        .play-btn:hover {
+            background: #d13d56;
+        }
+
+        .progress-bar-container {
+            flex: 1;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: #e94560;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
 </style>
+
+<!-- Load drawings data -->
+{{ drawings_json|json_script:"drawingsData" }}
+
+<!-- Timelapse Section -->
+<div class="gallery-header" style="margin-bottom: 0.5rem;">
+    <h2>Timelapse</h2>
+</div>
+
+<div class="timelapse-section">
+    <div class="timelapse-controls">
+        <div class="control-group">
+            <label for="tlOutlineSelect">Select Outline</label>
+            <select id="tlOutlineSelect">
+                <!-- Populated by JS -->
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="tlMovingAvg">Moving Average: <span id="tlMovingAvgVal">1</span></label>
+            <input type="range" id="tlMovingAvg" min="1" max="100" value="1">
+        </div>
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="tlNormalizeBtn" checked>
+            <label for="tlNormalizeBtn" style="margin: 0;">Normalize Opacity</label>
+        </div>
+
+        <div style="font-size: 0.85rem; color: #666; margin-top: 1rem;">
+            Frame: <span id="tlFrameIndex">0 / 0</span>
+        </div>
+    </div>
+
+    <div class="timelapse-video-container">
+        <div class="timelapse-canvas-wrapper">
+            <canvas id="timelapseCanvas" width="800" height="600"></canvas>
+        </div>
+
+        <div class="video-controls">
+            <button class="play-btn" id="tlPlayBtn">▶</button>
+            <div class="progress-bar-container" id="tlProgressBar">
+                <div class="progress-bar-fill" id="tlProgressFill"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <div class="gallery-header">
     <h2>Your Drawings</h2>
@@ -108,6 +278,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
+        // --- Existing Gallery Grid Logic ---
         const slider = document.getElementById('gridSize');
         const grid = document.getElementById('galleryGrid');
 
@@ -118,6 +289,236 @@
             });
             // trigger once on load
             grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${slider.value}px, 1fr))`;
+        }
+
+        // --- Timelapse Logic ---
+        const drawingsDataNode = document.getElementById('drawingsData');
+        if (!drawingsDataNode) return;
+
+        let allDrawings = [];
+        try {
+            allDrawings = JSON.parse(drawingsDataNode.textContent);
+        } catch (e) {
+            console.error("Error parsing drawings JSON", e);
+            return;
+        }
+
+        if (allDrawings.length === 0) return;
+
+        // UI Elements
+        const outlineSelect = document.getElementById('tlOutlineSelect');
+        const movingAvgSlider = document.getElementById('tlMovingAvg');
+        const movingAvgVal = document.getElementById('tlMovingAvgVal');
+        const normalizeBtn = document.getElementById('tlNormalizeBtn');
+        const playBtn = document.getElementById('tlPlayBtn');
+        const progressBar = document.getElementById('tlProgressBar');
+        const progressFill = document.getElementById('tlProgressFill');
+        const frameIndexLabel = document.getElementById('tlFrameIndex');
+        const canvas = document.getElementById('timelapseCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // State
+        let currentDrawings = []; // Drawings matching the selected outline
+        let loadedImages = {}; // url -> HTMLImageElement
+        let currentFrame = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        // 1. Populate Outline Select
+        const outlines = {};
+        allDrawings.forEach(d => {
+            if (!outlines[d.outline_id]) {
+                outlines[d.outline_id] = d.outline_name;
+            }
+        });
+
+        for (const [id, name] of Object.entries(outlines)) {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            outlineSelect.appendChild(opt);
+        }
+
+        // 2. Load images for selected outline
+        function updateSelectedOutline() {
+            const selectedId = outlineSelect.value;
+            if (!selectedId) return;
+
+            // Filter drawings
+            currentDrawings = allDrawings.filter(d => d.outline_id == selectedId);
+
+            // Adjust moving average max
+            movingAvgSlider.max = Math.max(1, currentDrawings.length);
+            if (parseInt(movingAvgSlider.value) > currentDrawings.length) {
+                movingAvgSlider.value = currentDrawings.length;
+                movingAvgVal.textContent = movingAvgSlider.value;
+            }
+
+            // Reset state
+            currentFrame = 0;
+            pauseVideo();
+            updateProgressUI();
+
+            // Preload images
+            currentDrawings.forEach(d => {
+                if (!loadedImages[d.url]) {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.src = d.url;
+                    // Draw frame once first image loads if we are on frame 0
+                    img.onload = () => {
+                        if (currentFrame === 0) drawFrame(0);
+                    };
+                    loadedImages[d.url] = img;
+                }
+            });
+
+            drawFrame(currentFrame);
+        }
+
+        // 3. Drawing Logic Function
+        function drawFrame(index) {
+            if (currentDrawings.length === 0) return;
+
+            // Ensure index bounds
+            if (index < 0) index = 0;
+            if (index >= currentDrawings.length) index = currentDrawings.length - 1;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const nConfig = parseInt(movingAvgSlider.value);
+            // The moving average is n consecutive drawings ending at `index` (or clamped)
+            // e.g if index=5, n=3, we show indices 3, 4, 5
+            const n = Math.min(nConfig, index + 1);
+            const startIndex = index - n + 1;
+
+            // Draw images. 
+            // In HTML5 Canvas, default composite operation 'source-over' formula is:
+            // co = Cs x αs + Cb x αb x (1 - αs)
+            // αo = αs + αb x (1 - αs)
+            // For completely black drawings (Cs=0, Cb=0), alpha simplifies to:
+            // αo = 1 - (1-αs)(1-αb)
+            // Which perfectly matches the required A_tot = 1 - T_tot formula!
+
+            for (let i = startIndex; i <= index; i++) {
+                const drawData = currentDrawings[i];
+                const img = loadedImages[drawData.url];
+                if (img && img.complete && img.naturalHeight !== 0) {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            // 4. Normalize opacity if requested
+            if (normalizeBtn.checked && n > 0) {
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imgData.data;
+                let maxAlpha = 0;
+
+                // Find max alpha
+                for (let i = 3; i < data.length; i += 4) {
+                    if (data[i] > maxAlpha) maxAlpha = data[i];
+                }
+
+                // Normalize
+                if (maxAlpha > 0 && maxAlpha < 255) {
+                    const scale = 255 / maxAlpha;
+                    for (let i = 3; i < data.length; i += 4) {
+                        data[i] = Math.min(255, Math.floor(data[i] * scale));
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                }
+            }
+
+            updateProgressUI();
+        }
+
+        // 5. Video Controls
+        function togglePlay() {
+            if (isPlaying) {
+                pauseVideo();
+            } else {
+                playVideo();
+            }
+        }
+
+        function playVideo() {
+            if (currentDrawings.length <= 1) return;
+            isPlaying = true;
+            playBtn.textContent = '⏸';
+
+            if (currentFrame >= currentDrawings.length - 1) {
+                currentFrame = 0; // restart
+            }
+
+            playInterval = setInterval(() => {
+                currentFrame++;
+                if (currentFrame >= currentDrawings.length) {
+                    pauseVideo();
+                    currentFrame = currentDrawings.length - 1;
+                } else {
+                    drawFrame(currentFrame);
+                }
+            }, 500); // 500ms per frame
+        }
+
+        function pauseVideo() {
+            isPlaying = false;
+            playBtn.textContent = '▶';
+            clearInterval(playInterval);
+        }
+
+        function updateProgressUI() {
+            if (currentDrawings.length === 0) {
+                progressFill.style.width = '0%';
+                frameIndexLabel.textContent = `0 / 0`;
+                return;
+            }
+            const pct = (currentFrame / (Math.max(1, currentDrawings.length - 1))) * 100;
+            progressFill.style.width = `${pct}%`;
+            frameIndexLabel.textContent = `${currentFrame + 1} / ${currentDrawings.length}`;
+        }
+
+        function scrubTo(e) {
+            if (currentDrawings.length === 0) return;
+            const rect = progressBar.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const pct = Math.max(0, Math.min(1, x / rect.width));
+
+            currentFrame = Math.round(pct * (currentDrawings.length - 1));
+            pauseVideo(); // pause on manual scrub
+            drawFrame(currentFrame);
+        }
+
+        // 6. Event Listeners
+        outlineSelect.addEventListener('change', updateSelectedOutline);
+
+        movingAvgSlider.addEventListener('input', (e) => {
+            movingAvgVal.textContent = e.target.value;
+            drawFrame(currentFrame); // redraw current frame with new average
+        });
+
+        normalizeBtn.addEventListener('change', () => {
+            drawFrame(currentFrame);
+        });
+
+        playBtn.addEventListener('click', togglePlay);
+
+        let isDragging = false;
+        progressBar.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            scrubTo(e);
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) scrubTo(e);
+        });
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Init
+        if (outlineSelect.options.length > 0) {
+            updateSelectedOutline();
         }
     });
 </script>
