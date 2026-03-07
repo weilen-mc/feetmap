@@ -1,0 +1,6 @@
+Cloudinary:
+Cloud name: dgrx4ddii
+
+Neon.tech:
+PW: ...$
+Connection string: postgresql://neondb_owner:<connection_password>@ep-wispy-block-a91esz5r-pooler.gwc.azure.neon.tech/neondb?sslmode=require&channel_binding=require
