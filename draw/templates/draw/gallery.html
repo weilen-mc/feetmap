@@ -182,21 +182,39 @@
             background: #d13d56;
         }
 
-        .progress-bar-container {
+        .tl-seek-bar {
             flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
             height: 8px;
             background: #ddd;
             border-radius: 4px;
+            outline: none;
             cursor: pointer;
-            position: relative;
         }
 
-        .progress-bar-fill {
-            height: 100%;
+        .tl-seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
             background: #e94560;
-            border-radius: 4px;
-            width: 0%;
-            transition: width 0.1s linear;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .tl-seek-bar::-moz-range-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
 </style>
 
@@ -239,9 +257,7 @@
 
         <div class="video-controls">
             <button class="play-btn" id="tlPlayBtn">▶</button>
-            <div class="progress-bar-container" id="tlProgressBar">
-                <div class="progress-bar-fill" id="tlProgressFill"></div>
-            </div>
+            <input type="range" class="tl-seek-bar" id="tlSeekBar" min="0" max="0" value="0">
         </div>
     </div>
 </div>
@@ -311,8 +327,7 @@
         const movingAvgVal = document.getElementById('tlMovingAvgVal');
         const normalizeBtn = document.getElementById('tlNormalizeBtn');
         const playBtn = document.getElementById('tlPlayBtn');
-        const progressBar = document.getElementById('tlProgressBar');
-        const progressFill = document.getElementById('tlProgressFill');
+        const seekBar = document.getElementById('tlSeekBar');
         const frameIndexLabel = document.getElementById('tlFrameIndex');
         const canvas = document.getElementById('timelapseCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -354,6 +369,9 @@
                 movingAvgVal.textContent = movingAvgSlider.value;
             }
 
+            // Adjust seek bar max
+            seekBar.max = Math.max(0, currentDrawings.length - 1);
+
             // Reset state
             currentFrame = 0;
             pauseVideo();
@@ -361,15 +379,21 @@
 
             // Preload images
             currentDrawings.forEach(d => {
+                // Preload Drawing
                 if (!loadedImages[d.url]) {
                     const img = new Image();
                     img.crossOrigin = "anonymous";
                     img.src = d.url;
-                    // Draw frame once first image loads if we are on frame 0
-                    img.onload = () => {
-                        if (currentFrame === 0) drawFrame(0);
-                    };
+                    img.onload = () => { if (currentFrame === 0) drawFrame(0); };
                     loadedImages[d.url] = img;
+                }
+                // Preload Outline
+                if (!loadedImages[d.outline_url]) {
+                    const oImg = new Image();
+                    oImg.crossOrigin = "anonymous";
+                    oImg.src = d.outline_url;
+                    oImg.onload = () => { if (currentFrame === 0) drawFrame(0); };
+                    loadedImages[d.outline_url] = oImg;
                 }
             });
 
@@ -387,20 +411,20 @@
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // 1. Draw Outline background
+            const outlineUrl = currentDrawings[0].outline_url;
+            const outlineImg = loadedImages[outlineUrl];
+            if (outlineImg && outlineImg.complete && outlineImg.naturalHeight !== 0) {
+                ctx.globalAlpha = 0.2; // Set outline opacity
+                ctx.drawImage(outlineImg, 0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1.0; // Reset
+            }
+
             const nConfig = parseInt(movingAvgSlider.value);
-            // The moving average is n consecutive drawings ending at `index` (or clamped)
-            // e.g if index=5, n=3, we show indices 3, 4, 5
             const n = Math.min(nConfig, index + 1);
             const startIndex = index - n + 1;
 
-            // Draw images. 
-            // In HTML5 Canvas, default composite operation 'source-over' formula is:
-            // co = Cs x αs + Cb x αb x (1 - αs)
-            // αo = αs + αb x (1 - αs)
-            // For completely black drawings (Cs=0, Cb=0), alpha simplifies to:
-            // αo = 1 - (1-αs)(1-αb)
-            // Which perfectly matches the required A_tot = 1 - T_tot formula!
-
+            // 2. Draw Drawings (source-over naturally handles the A_tot requirement)
             for (let i = startIndex; i <= index; i++) {
                 const drawData = currentDrawings[i];
                 const img = loadedImages[drawData.url];
@@ -409,18 +433,16 @@
                 }
             }
 
-            // 4. Normalize opacity if requested
+            // 3. Normalize opacity if requested
             if (normalizeBtn.checked && n > 0) {
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imgData.data;
                 let maxAlpha = 0;
 
-                // Find max alpha
                 for (let i = 3; i < data.length; i += 4) {
                     if (data[i] > maxAlpha) maxAlpha = data[i];
                 }
 
-                // Normalize
                 if (maxAlpha > 0 && maxAlpha < 255) {
                     const scale = 255 / maxAlpha;
                     for (let i = 3; i < data.length; i += 4) {
@@ -470,12 +492,11 @@
 
         function updateProgressUI() {
             if (currentDrawings.length === 0) {
-                progressFill.style.width = '0%';
+                seekBar.value = 0;
                 frameIndexLabel.textContent = `0 / 0`;
                 return;
             }
-            const pct = (currentFrame / (Math.max(1, currentDrawings.length - 1))) * 100;
-            progressFill.style.width = `${pct}%`;
+            seekBar.value = currentFrame;
             frameIndexLabel.textContent = `${currentFrame + 1} / ${currentDrawings.length}`;
         }
 
@@ -504,16 +525,10 @@
 
         playBtn.addEventListener('click', togglePlay);
 
-        let isDragging = false;
-        progressBar.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            scrubTo(e);
-        });
-        window.addEventListener('mousemove', (e) => {
-            if (isDragging) scrubTo(e);
-        });
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
+        seekBar.addEventListener('input', (e) => {
+            currentFrame = parseInt(e.target.value);
+            pauseVideo(); // pause on manual scrub
+            drawFrame(currentFrame);
         });
 
         // Init

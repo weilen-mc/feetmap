@@ -124,6 +124,7 @@ def gallery_view(request):
             'id': d.id,
             'outline_id': d.outline.id,
             'outline_name': d.outline.name,
+            'outline_url': d.outline.image.url,
             'url': d.image.url,
             'created_at': d.created_at.strftime('%Y-%m-%d %H:%M:%S')
         })
