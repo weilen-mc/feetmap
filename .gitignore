@@ -5,3 +5,5 @@ __pycache__/
 staticfiles/
 ache__/*
 */*/__pycache__
+media/drawings/*
+media/outlines/*
