@@ -57,7 +57,7 @@
         width: 100%;
         height: 100%;
         object-fit: contain;
-        opacity: 0.2;
+        opacity: 1.0;
     }
 
     .gallery-item .drawing-img {
@@ -522,7 +522,7 @@
             const outlineUrl = currentDrawings[0].outline_url;
             const outlineImg = loadedImages[outlineUrl];
             if (outlineImg && outlineImg.complete && outlineImg.naturalHeight !== 0) {
-                ctx.globalAlpha = 0.4; // Increased outline opacity for better visibility
+                ctx.globalAlpha = 1.0; // Set outline opacity to 100%
                 drawImageContain(outlineImg, ctx, canvas.width, canvas.height);
                 ctx.globalAlpha = 1.0; // Reset
             }

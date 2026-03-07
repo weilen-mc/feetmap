@@ -196,11 +196,6 @@ def bulk_download_drawings(request):
                             
                             outline_resized = outline.resize((draw_w, draw_h), Image.Resampling.LANCZOS)
                             
-                            # Apply 0.2 opacity (same as gallery/index)
-                            alpha = outline_resized.getchannel('A')
-                            new_alpha = alpha.point(lambda p: int(p * 0.2))
-                            outline_resized.putalpha(new_alpha)
-                            
                             composite.paste(outline_resized, (x, y), outline_resized)
                     
                     # 2. Process Drawing
