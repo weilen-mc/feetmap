@@ -54,7 +54,9 @@ def upload_outline(request):
     if request.method == 'POST':
         form = OutlineUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            outline = form.save()
+            outline = form.save(commit=False)
+            outline.user = request.user
+            outline.save()
             profile = request.user.userprofile
             profile.selected_outline = outline
             profile.save()
