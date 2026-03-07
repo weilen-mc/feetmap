@@ -11,6 +11,7 @@ class Outline(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     selected_outline = models.ForeignKey(Outline, on_delete=models.SET_NULL, null=True, blank=True)
+    favorite_colors = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"

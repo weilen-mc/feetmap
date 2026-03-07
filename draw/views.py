@@ -100,6 +100,20 @@ def save_drawing(request):
     return JsonResponse({"success": False}, status=400)
 
 @login_required
+def save_favorites(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            favorites = data.get('favorites', [])
+            profile = request.user.userprofile
+            profile.favorite_colors = favorites
+            profile.save()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+    return JsonResponse({"success": False}, status=400)
+
+@login_required
 def gallery_view(request):
     drawings = Drawing.objects.filter(user=request.user).order_by('-created_at')
     return render(request, 'draw/gallery.html', {'drawings': drawings})

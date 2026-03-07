@@ -70,21 +70,40 @@
         flex-direction: column;
         gap: 1rem;
     }
+
+    .favorite-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid #ddd;
+        cursor: pointer;
+        padding: 0;
+    }
 </style>
 
 <div class="drawing-workspace">
     <div class="toolbar">
         <div class="tool-section">
-            <label for="colorPicker">Color</label>
-            <input type="color" id="colorPicker" value="#000000">
+            <label>Color</label>
+            <div id="colorPickerWrap"></div>
+
+            <div class="favorite-controls" style="margin-top: 10px; display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="favoriteCheckbox">
+                <label for="favoriteCheckbox"
+                    style="font-weight: normal; font-size: 0.9em; margin: 0; padding: 0;">Favorite</label>
+            </div>
+
+            <div id="favoriteColors"
+                style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 5px; min-height: 30px;">
+            </div>
         </div>
         <div class="tool-section">
-            <label for="lineWidth">Stroke Width (<span id="widthValue">5</span>px)</label>
-            <input type="range" id="lineWidth" min="1" max="50" value="5">
+            <label for="lineWidth">Stroke Width (<span id="widthValue">15</span>px)</label>
+            <input type="range" id="lineWidth" min="1" max="50" value="15">
         </div>
         <div class="tool-section">
-            <label for="opacity">Opacity (<span id="opacityValue">100</span>%)</label>
-            <input type="range" id="opacity" min="1" max="100" value="100">
+            <label for="opacity">Opacity (<span id="opacityValue">5</span>%)</label>
+            <input type="range" id="opacity" min="1" max="100" value="5">
         </div>
         <div class="actions">
             <button id="btnSave" class="btn">Save + next</button>
@@ -104,6 +123,8 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+{{ request.user.userprofile.favorite_colors|json_script:"favorites-data" }}
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const canvas = document.getElementById('drawingCanvas');
@@ -115,7 +136,16 @@
         let lastY = 0;
 
         // Tools
-        const colorPicker = document.getElementById('colorPicker');
+        const colorPicker = new iro.ColorPicker("#colorPickerWrap", {
+            width: 200,
+            color: "#ff0000"
+        });
+        const favoriteCheckbox = document.getElementById('favoriteCheckbox');
+        const favoriteColors = document.getElementById('favoriteColors');
+
+        const favoritesData = document.getElementById('favorites-data');
+        let favorites = favoritesData ? JSON.parse(favoritesData.textContent) : [];
+
         const lineWidth = document.getElementById('lineWidth');
         const widthValue = document.getElementById('widthValue');
         const opacity = document.getElementById('opacity');
@@ -130,7 +160,7 @@
         updateCtx();
 
         function updateCtx() {
-            const hex = colorPicker.value;
+            const hex = colorPicker.color.hexString.toLowerCase();
             const r = parseInt(hex.slice(1, 3), 16);
             const g = parseInt(hex.slice(3, 5), 16);
             const b = parseInt(hex.slice(5, 7), 16);
@@ -140,7 +170,64 @@
             ctx.lineWidth = lineWidth.value;
         }
 
-        colorPicker.addEventListener('input', updateCtx);
+        colorPicker.on('color:change', function (color) {
+            const hex = color.hexString.toLowerCase();
+            favoriteCheckbox.checked = favorites.includes(hex);
+            updateCtx();
+        });
+
+        favoriteCheckbox.addEventListener('change', (e) => {
+            const hex = colorPicker.color.hexString.toLowerCase();
+            if (e.target.checked) {
+                if (!favorites.includes(hex)) {
+                    if (favorites.length >= 5) {
+                        favorites.shift(); // remove oldest
+                    }
+                    favorites.push(hex);
+                }
+            } else {
+                favorites = favorites.filter(c => c !== hex);
+            }
+            renderFavorites();
+            saveFavoritesToBackend();
+        });
+
+        function saveFavoritesToBackend() {
+            fetch("{% url 'save_favorites' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    favorites: favorites
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error("Error saving favorites:", data.error);
+                    }
+                })
+                .catch(err => console.error("Error saving favorites:", err));
+        }
+
+        function renderFavorites() {
+            favoriteColors.innerHTML = '';
+            favorites.forEach(hex => {
+                const btn = document.createElement('button');
+                btn.className = 'favorite-btn';
+                btn.style.backgroundColor = hex;
+                btn.title = hex;
+                btn.addEventListener('click', () => {
+                    colorPicker.color.hexString = hex;
+                    favoriteCheckbox.checked = true;
+                    updateCtx();
+                });
+                favoriteColors.appendChild(btn);
+            });
+        }
+
         lineWidth.addEventListener('input', (e) => {
             widthValue.textContent = e.target.value;
             updateCtx();
@@ -237,6 +324,10 @@
     alert("Please select an outline first.");
     {% endif %}
         });
+
+    // Initial render for favorites loaded from the backend
+    renderFavorites();
+    favoriteCheckbox.checked = favorites.includes(colorPicker.color.hexString.toLowerCase());
     });
 </script>
 {% endblock %}
