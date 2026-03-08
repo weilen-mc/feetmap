@@ -121,13 +121,29 @@ LOGGING = {
 
 # Storage configuration
 if env('CLOUDINARY_URL', default=None):
-    # Production: Cloudinary for Media
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    # Use simpler WhiteNoise storage (skips manifest generation which can fail)
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+    # Production: Cloudinary for Media and Statics
+    CLOUDINARY_STORAGE = {
+        'URL': env('CLOUDINARY_URL')
+    }
+    
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
 else:
     # Development: Local FileSystem
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
