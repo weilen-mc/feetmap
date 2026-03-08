@@ -23,7 +23,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-5mh8$&z06)xc6bd30pj9yzj=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '.onrender.com'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -120,7 +120,7 @@ LOGGING = {
 }
 
 # Storage configuration
-if env('CLOUDINARY_URL', default=None):
+if os.environ.get('CLOUDINARY_URL'):
     # Production: Cloudinary for Media
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
     # Use simpler WhiteNoise storage (skips manifest generation which can fail)
