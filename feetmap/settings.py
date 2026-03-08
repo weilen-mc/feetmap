@@ -121,37 +121,20 @@ LOGGING = {
 
 # Storage configuration
 if env('CLOUDINARY_URL', default=None):
-    # Production: Cloudinary for Media and Statics
+    # Production: Cloudinary for Media
     CLOUDINARY_STORAGE = {
         'URL': env('CLOUDINARY_URL')
     }
-    
-    # Modern Django 4.2+ configuration
-    STORAGES = {
-        "default": {
-            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-        },
-    }
-    # Fix for FileNotFoundError during collectstatic in multi-threaded environments (Python 3.13)
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    # Use simpler WhiteNoise storage (skips manifest generation which can fail)
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+    # Fix for FileNotFoundError during collectstatic
     WHITENOISE_MAX_WORKERS = 1
-    # Backward compatibility for legacy packages
-    DEFAULT_FILE_STORAGE = STORAGES["default"]["BACKEND"]
-    STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]
 else:
     # Development: Local FileSystem
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-    DEFAULT_FILE_STORAGE = STORAGES["default"]["BACKEND"]
-    STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    # Static files use default
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
