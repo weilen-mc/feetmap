@@ -135,6 +135,8 @@ if env('CLOUDINARY_URL', default=None):
             "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
         },
     }
+    # Fix for FileNotFoundError during collectstatic in multi-threaded environments (Python 3.13)
+    WHITENOISE_MAX_WORKERS = 1
     # Backward compatibility for legacy packages
     DEFAULT_FILE_STORAGE = STORAGES["default"]["BACKEND"]
     STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]
