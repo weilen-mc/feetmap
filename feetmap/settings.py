@@ -131,22 +131,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # WhiteNoise configuration for static files
 if not DEBUG:
-    # Use the simpler storage if manifest generation fails or causes 404s on Render
-    STORAGES = {
-        "default": {
-            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage" if env('CLOUDINARY_URL', default=None) else "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-        },
-    }
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    # Prevents 500 errors if a static file is missing in the manifest
+    WHITENOISE_MANIFEST_STRICT = False
 
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Media roots removed as they are handled by STORAGES above for Django 4.2+
-# But for backwards compatibility with some Cloudinary versions we keep them here:
+# Storage configuration: Use Cloudinary in production if CLOUDINARY_URL is present
 if env('CLOUDINARY_URL', default=None):
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 else:
