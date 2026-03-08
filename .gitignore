@@ -1,9 +1,8 @@
-.vscod.venv/
+.venv/
 __pycache__/
 *.pyc
 .env
+db.sqlite3
+media/
 staticfiles/
-ache__/*
-*/*/__pycache__
-media/drawings/*
-media/outlines/*
+.DS_Store

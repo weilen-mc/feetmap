@@ -176,9 +176,9 @@ def bulk_download_drawings(request):
                     
                     # 1. Process Outline (Low Opacity, Contain aspect ratio)
                     if drawing.outline and drawing.outline.image:
-                        outline_path = drawing.outline.image.path
-                        with Image.open(outline_path) as outline:
-                            outline = outline.convert("RGBA")
+                        with drawing.outline.image.open() as outline_file:
+                            with Image.open(outline_file) as outline:
+                                outline = outline.convert("RGBA")
                             
                             # Aspect ratio calculations (Contain)
                             img_w, img_h = outline.size
@@ -201,10 +201,11 @@ def bulk_download_drawings(request):
                             composite.paste(outline_resized, (x, y), outline_resized)
                     
                     # 2. Process Drawing
-                    with Image.open(drawing.image.path) as drawing_img:
-                        drawing_img = drawing_img.convert("RGBA")
-                        # Paste drawing on top (it's already 800x600)
-                        composite.paste(drawing_img, (0, 0), drawing_img)
+                    with drawing.image.open() as drawing_file:
+                        with Image.open(drawing_file) as drawing_img:
+                            drawing_img = drawing_img.convert("RGBA")
+                            # Paste drawing on top (it's already 800x600)
+                            composite.paste(drawing_img, (0, 0), drawing_img)
                     
                     # 3. Save to memory and then to zip
                     img_io = io.BytesIO()

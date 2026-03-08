@@ -124,27 +124,44 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# WhiteNoise configuration for static files
-if not DEBUG:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-    # Prevents 500 errors if a static file is missing in the manifest
-    WHITENOISE_MANIFEST_STRICT = False
 
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Storage configuration: Use Cloudinary in production if CLOUDINARY_URL is present
+# Logging configuration to see errors in Render logs
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+# Storage configuration
 if env('CLOUDINARY_URL', default=None):
+    # Production
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    if not DEBUG:
+        STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 else:
+    # Development
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
-
