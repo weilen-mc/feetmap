@@ -57,7 +57,7 @@ def upload_outline(request):
             outline = form.save(commit=False)
             outline.user = request.user
             outline.save()
-            profile = request.user.userprofile
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
             profile.selected_outline = outline
             profile.save()
             return redirect('index')
@@ -72,7 +72,7 @@ def select_outline(request):
         if outline_id:
             try:
                 outline = Outline.objects.get(id=outline_id)
-                profile = request.user.userprofile
+                profile, created = UserProfile.objects.get_or_create(user=request.user)
                 profile.selected_outline = outline
                 profile.save()
             except Outline.DoesNotExist:
@@ -111,7 +111,7 @@ def save_favorites(request):
         try:
             data = json.loads(request.body)
             favorites = data.get('favorites', [])
-            profile = request.user.userprofile
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
             profile.favorite_colors = favorites
             profile.save()
             return JsonResponse({"success": True})
