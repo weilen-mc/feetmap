@@ -122,18 +122,12 @@ LOGGING = {
 # Storage configuration
 if env('CLOUDINARY_URL', default=None):
     # Production: Cloudinary for Media
-    CLOUDINARY_STORAGE = {
-        'URL': env('CLOUDINARY_URL')
-    }
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    # Use simpler WhiteNoise storage (skips manifest generation which can fail)
+    # Use simpler WhiteNoise storage
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
-    # Fix for FileNotFoundError during collectstatic
-    WHITENOISE_MAX_WORKERS = 1
 else:
     # Development: Local FileSystem
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-    # Static files use default
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 LOGIN_URL = 'login'
