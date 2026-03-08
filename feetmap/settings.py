@@ -126,6 +126,7 @@ if env('CLOUDINARY_URL', default=None):
         'URL': env('CLOUDINARY_URL')
     }
     
+    # Modern Django 4.2+ configuration
     STORAGES = {
         "default": {
             "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
@@ -134,6 +135,9 @@ if env('CLOUDINARY_URL', default=None):
             "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
         },
     }
+    # Backward compatibility for legacy packages
+    DEFAULT_FILE_STORAGE = STORAGES["default"]["BACKEND"]
+    STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]
 else:
     # Development: Local FileSystem
     STORAGES = {
@@ -144,6 +148,8 @@ else:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+    DEFAULT_FILE_STORAGE = STORAGES["default"]["BACKEND"]
+    STATICFILES_STORAGE = STORAGES["staticfiles"]["BACKEND"]
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
