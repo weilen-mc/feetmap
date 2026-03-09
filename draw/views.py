@@ -168,43 +168,26 @@ def bulk_download_drawings(request):
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, 'w') as zf:
                 for drawing in drawings:
-                    # Target size for compositing
-                    target_w, target_h = 800, 600
-                    
-                    # Create white background
-                    composite = Image.new("RGBA", (target_w, target_h), (255, 255, 255, 255))
-                    
-                    # 1. Process Outline (Low Opacity, Contain aspect ratio)
-                    if drawing.outline and drawing.outline.image:
-                        with drawing.outline.image.open() as outline_file:
-                            with Image.open(outline_file) as outline:
-                                outline = outline.convert("RGBA")
-                            
-                            # Aspect ratio calculations (Contain)
-                            img_w, img_h = outline.size
-                            img_aspect = img_w / img_h
-                            target_aspect = target_w / target_h
-                            
-                            if img_aspect > target_aspect:
-                                draw_w = target_w
-                                draw_h = int(target_w / img_aspect)
-                                x = 0
-                                y = (target_h - draw_h) // 2
-                            else:
-                                draw_h = target_h
-                                draw_w = int(target_h * img_aspect)
-                                x = (target_w - draw_w) // 2
-                                y = 0
-                            
-                            outline_resized = outline.resize((draw_w, draw_h), Image.Resampling.LANCZOS)
-                            
-                            composite.paste(outline_resized, (x, y), outline_resized)
-                    
-                    # 2. Process Drawing
+                    # Process Drawing first to get target size
                     with drawing.image.open() as drawing_file:
                         with Image.open(drawing_file) as drawing_img:
                             drawing_img = drawing_img.convert("RGBA")
-                            # Paste drawing on top (it's already 800x600)
+                            target_w, target_h = drawing_img.size
+                            
+                            # Create white background
+                            composite = Image.new("RGBA", (target_w, target_h), (255, 255, 255, 255))
+                            
+                            # 1. Process Outline (Resize to match drawing exactly)
+                            if drawing.outline and drawing.outline.image:
+                                with drawing.outline.image.open() as outline_file:
+                                    with Image.open(outline_file) as outline:
+                                        outline = outline.convert("RGBA")
+                                        # New: Resize outline to match the drawing resolution exactly
+                                        # This works because they now share the same aspect ratio
+                                        outline_resized = outline.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                                        composite.paste(outline_resized, (0, 0), outline_resized)
+                            
+                            # 2. Paste Drawing on top
                             composite.paste(drawing_img, (0, 0), drawing_img)
                     
                     # 3. Save to memory and then to zip

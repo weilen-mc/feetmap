@@ -462,14 +462,14 @@
             pauseVideo();
             updateProgressUI();
 
-            // Preload images
-            currentDrawings.forEach(d => {
+            // Preload images and sync canvas aspect ratio
+            currentDrawings.forEach((d, i) => {
                 // Preload Drawing
                 if (!loadedImages[d.url]) {
                     const img = new Image();
                     img.crossOrigin = "anonymous";
                     img.src = d.url;
-                    img.onload = () => { if (currentFrame === 0) drawFrame(0); };
+                    img.onload = () => { if (currentFrame === i) drawFrame(i); };
                     loadedImages[d.url] = img;
                 }
                 // Preload Outline
@@ -477,34 +477,18 @@
                     const oImg = new Image();
                     oImg.crossOrigin = "anonymous";
                     oImg.src = d.outline_url;
-                    oImg.onload = () => { if (currentFrame === 0) drawFrame(0); };
+                    oImg.onload = () => {
+                        // Sync timelapse canvas aspect ratio based on the first outline loaded
+                        const aspectRatio = oImg.naturalWidth / oImg.naturalHeight;
+                        canvas.width = 800;
+                        canvas.height = 800 / aspectRatio;
+                        if (currentFrame === 0) drawFrame(0);
+                    };
                     loadedImages[d.outline_url] = oImg;
                 }
             });
 
             drawFrame(currentFrame);
-        }
-
-        // Helper to draw image like object-fit: contain
-        function drawImageContain(img, targetCtx, targetWidth, targetHeight) {
-            const imgAspect = img.naturalWidth / img.naturalHeight;
-            const targetAspect = targetWidth / targetHeight;
-            let drawWidth, drawHeight, x, y;
-
-            if (imgAspect > targetAspect) {
-                // Image is wider
-                drawWidth = targetWidth;
-                drawHeight = targetWidth / imgAspect;
-                x = 0;
-                y = (targetHeight - drawHeight) / 2;
-            } else {
-                // Image is taller
-                drawHeight = targetHeight;
-                drawWidth = targetHeight * imgAspect;
-                x = (targetWidth - drawWidth) / 2;
-                y = 0;
-            }
-            targetCtx.drawImage(img, x, y, drawWidth, drawHeight);
         }
 
         // 3. Drawing Logic Function
@@ -522,20 +506,21 @@
             const outlineUrl = currentDrawings[0].outline_url;
             const outlineImg = loadedImages[outlineUrl];
             if (outlineImg && outlineImg.complete && outlineImg.naturalHeight !== 0) {
-                ctx.globalAlpha = 1.0; // Set outline opacity to 100%
-                drawImageContain(outlineImg, ctx, canvas.width, canvas.height);
-                ctx.globalAlpha = 1.0; // Reset
+                ctx.globalAlpha = 1.0;
+                // Draw to fill - aspect ratio is now synced in handleUpdateOutline
+                ctx.drawImage(outlineImg, 0, 0, canvas.width, canvas.height);
             }
 
             const nConfig = parseInt(movingAvgSlider.value);
             const n = Math.min(nConfig, index + 1);
             const startIndex = index - n + 1;
 
-            // 2. Draw Drawings (source-over naturally handles the A_tot requirement)
+            // 2. Draw Drawings
             for (let i = startIndex; i <= index; i++) {
                 const drawData = currentDrawings[i];
                 const img = loadedImages[drawData.url];
                 if (img && img.complete && img.naturalHeight !== 0) {
+                    // Draw to fill
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 }
             }
