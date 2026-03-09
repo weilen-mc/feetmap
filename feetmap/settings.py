@@ -23,7 +23,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-5mh8$&z06)xc6bd30pj9yzj=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '.onrender.com'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '.onrender.com', '192.168.1.155', 'MacBook-Pro-von-Christoph.local'])
 
 # Application definition
 INSTALLED_APPS = [
