@@ -295,6 +295,10 @@
 <!-- Load drawings data -->
 {{ drawings_json|json_script:"drawingsData" }}
 
+<!-- GIF Encoding Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+
 <!-- Timelapse Section -->
 <div class="gallery-header" style="margin-bottom: 0.5rem;">
     <h2>Timelapse</h2>
@@ -321,6 +325,9 @@
 
         <button id="btnDownloadTimelapse" class="btn" style="margin-top: 1rem; width: 100%;" disabled>Download
             Video</button>
+        <button id="btnDownloadGif" class="btn" style="margin-top: 0.5rem; width: 100%; background-color: #f39c12;"
+            disabled>Download GIF</button>
+
     </div>
 
     <div class="timelapse-video-container">
@@ -414,7 +421,9 @@
         const seekBar = document.getElementById('tlSeekBar');
         const frameDateLabel = document.getElementById('tlFrameDate');
         const btnDownloadTimelapse = document.getElementById('btnDownloadTimelapse');
+        const btnDownloadGif = document.getElementById('btnDownloadGif');
         const canvas = document.getElementById('timelapseCanvas');
+
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         // State
@@ -601,11 +610,14 @@
             if (currentDrawings.length === 0) {
                 seekBar.value = 0;
                 btnDownloadTimelapse.disabled = true;
+                btnDownloadGif.disabled = true;
                 return;
             }
             seekBar.value = currentFrame;
             btnDownloadTimelapse.disabled = false;
+            btnDownloadGif.disabled = false;
         }
+
 
         function scrubTo(e) {
             if (currentDrawings.length === 0) return;
@@ -805,6 +817,74 @@
                 }
             }, 200); // 5 frames per second
         });
+
+        // --- GIF Download Logic ---
+        let gifWorkerUrl = null;
+
+        async function getGifWorkerUrl() {
+            if (gifWorkerUrl) return gifWorkerUrl;
+            try {
+                const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js');
+                const scriptText = await response.text();
+                const blob = new Blob([scriptText], { type: 'application/javascript' });
+                gifWorkerUrl = URL.createObjectURL(blob);
+                return gifWorkerUrl;
+            } catch (e) {
+                console.error("Error loading GIF worker:", e);
+                return 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'; // fallback
+            }
+        }
+
+        btnDownloadGif.addEventListener('click', async function () {
+            if (currentDrawings.length === 0) return;
+
+            const workerUrl = await getGifWorkerUrl();
+
+            // Initialize GIF encoder
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: canvas.width,
+                height: canvas.height,
+                workerScript: workerUrl
+            });
+
+
+            // UI state
+            btnDownloadTimelapse.disabled = true;
+            btnDownloadGif.disabled = true;
+            playBtn.disabled = true;
+            const originalText = btnDownloadGif.textContent;
+            btnDownloadGif.textContent = 'Generating GIF...';
+
+            // Add frames
+            for (let i = 0; i < currentDrawings.length; i++) {
+                drawFrame(i);
+                gif.addFrame(ctx, { copy: true, delay: 200 }); // 200ms delay between frames
+            }
+
+            gif.on('finished', function (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `timelapse_${outlineSelect.value}.gif`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                // Reset UI state
+                btnDownloadGif.textContent = originalText;
+                btnDownloadGif.disabled = false;
+                btnDownloadTimelapse.disabled = false;
+                playBtn.disabled = false;
+
+                // Return to first frame
+                currentFrame = 0;
+                drawFrame(0);
+            });
+
+            gif.render();
+        });
+
 
         // Init
         if (outlineSelect.options.length > 0) {
