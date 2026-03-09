@@ -114,15 +114,81 @@
             padding: 0;
             margin-bottom: 1rem;
         }
+
+        /* Responsive Navigation */
+        .menu-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+            z-index: 1001;
+        }
+
+        .menu-toggle span {
+            display: block;
+            width: 25px;
+            height: 3px;
+            background: #fff;
+            transition: 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 1rem;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            nav {
+                position: fixed;
+                top: 0;
+                right: -100%;
+                width: 250px;
+                height: 100vh;
+                background: #1a1a2e;
+                flex-direction: column;
+                justify-content: flex-start;
+                padding: 5rem 2rem 2rem 2rem;
+                transition: 0.3s ease-in-out;
+                box-shadow: -4px 0 10px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                display: flex !important;
+            }
+
+            nav.active {
+                right: 0;
+            }
+
+            nav a,
+            nav span,
+            nav form {
+                margin: 1rem 0 !important;
+                display: block !important;
+            }
+
+            nav form select {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
 <body>
     <header>
         <h1>FeetMap</h1>
-        <nav>
+        <button id="menuToggle" class="menu-toggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <nav id="navMenu">
             {% if user.is_authenticated %}
-            <span>Hello, {{ user.username }}</span>
+            <span style="color: #e94560; font-weight: bold;">{{ user.username }}</span>
             <a href="{% url 'index' %}">Draw</a>
             <a href="{% url 'gallery' %}">Gallery</a>
             <a href="{% url 'upload_outline' %}">Upload Outline</a>
@@ -154,6 +220,25 @@
     <main class="container">
         {% block content %}{% endblock %}
     </main>
+
+    <script>
+        document.getElementById('menuToggle').addEventListener('click', function () {
+            document.getElementById('navMenu').classList.toggle('active');
+
+            // Animate burger to X
+            const spans = this.querySelectorAll('span');
+            this.classList.toggle('open');
+            if (this.classList.contains('open')) {
+                spans[0].style.transform = 'rotate(45deg) translate(5px, 6px)';
+                spans[1].style.opacity = '0';
+                spans[2].style.transform = 'rotate(-45deg) translate(5px, -6px)';
+            } else {
+                spans[0].style.transform = 'none';
+                spans[1].style.opacity = '1';
+                spans[2].style.transform = 'none';
+            }
+        });
+    </script>
 </body>
 
 </html>
