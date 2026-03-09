@@ -222,3 +222,23 @@ def bulk_download_drawings(request):
         except Exception as e:
             return HttpResponse(f"Error creating zip: {e}", status=500)
     return HttpResponse("Invalid request", status=400)
+
+@login_required
+def update_user_settings(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            
+            if 'last_color' in data:
+                profile.last_color = data['last_color']
+            if 'last_width' in data:
+                profile.last_width = data['last_width']
+            if 'last_opacity' in data:
+                profile.last_opacity = data['last_opacity']
+                
+            profile.save()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+    return JsonResponse({"success": False}, status=400)

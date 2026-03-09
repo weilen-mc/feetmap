@@ -8,6 +8,7 @@ urlpatterns = [
     path('save_drawing/', views.save_drawing, name='save_drawing'),
     path('save_favorites/', views.save_favorites, name='save_favorites'),
     path('gallery/', views.gallery_view, name='gallery'),
+    path('update_settings/', views.update_user_settings, name='update_settings'),
     path('bulk_delete/', views.bulk_delete_drawings, name='bulk_delete'),
     path('bulk_download/', views.bulk_download_drawings, name='bulk_download'),
     path('register/', views.register_view, name='register'),

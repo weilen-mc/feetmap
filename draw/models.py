@@ -14,6 +14,11 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     selected_outline = models.ForeignKey(Outline, on_delete=models.SET_NULL, null=True, blank=True)
     favorite_colors = models.JSONField(default=list, blank=True)
+    
+    # Persistent drawing settings
+    last_color = models.CharField(max_length=7, default="#ff0000")
+    last_width = models.IntegerField(default=15)
+    last_opacity = models.IntegerField(default=15)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
