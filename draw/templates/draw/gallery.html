@@ -436,8 +436,10 @@
         const btnDownloadTimelapse = document.getElementById('btnDownloadTimelapse');
         const btnDownloadGif = document.getElementById('btnDownloadGif');
         const canvas = document.getElementById('timelapseCanvas');
-
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const offscreenCanvas = document.createElement('canvas');
+        const offCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
 
         // State
         let currentFrames = []; // Frames containing { d1, d2, time, dateStr }
@@ -655,29 +657,36 @@
             const n = Math.min(nConfig, index + 1);
             const startIndex = index - n + 1;
 
-            // 2. Draw Drawings
+            offscreenCanvas.width = canvas.width;
+            offscreenCanvas.height = canvas.height;
+            offCtx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Adjust opacity depending on the feature toggle
+            offCtx.globalAlpha = normalizeBtn.checked ? (1.0 / nConfig) : 1.0;
+
+            // 2. Draw Drawings to offscreen 
             for (let i = startIndex; i <= index; i++) {
                 const frm = currentFrames[i];
                 if (isSideBySide) {
                     if (frm.d1) {
                         const imgL = loadedImages[frm.d1.url];
-                        if (imgL && imgL.complete) ctx.drawImage(imgL, 0, headerOffset, halfW, drawHeight);
+                        if (imgL && imgL.complete) offCtx.drawImage(imgL, 0, headerOffset, halfW, drawHeight);
                     }
                     if (frm.d2) {
                         const imgR = loadedImages[frm.d2.url];
-                        if (imgR && imgR.complete) ctx.drawImage(imgR, halfW, headerOffset, halfW, drawHeight);
+                        if (imgR && imgR.complete) offCtx.drawImage(imgR, halfW, headerOffset, halfW, drawHeight);
                     }
                 } else {
                     if (frm.d1) {
                         const img = loadedImages[frm.d1.url];
-                        if (img && img.complete) ctx.drawImage(img, 0, headerOffset, halfW, drawHeight);
+                        if (img && img.complete) offCtx.drawImage(img, 0, headerOffset, halfW, drawHeight);
                     }
                 }
             }
 
-            // 3. Normalize opacity if requested
-            if (normalizeBtn.checked && n > 0) {
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            // 3. Assure data does not exceed maximum alpha value (normal behavior)
+            if (n > 0) {
+                const imgData = offCtx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imgData.data;
                 let maxAlpha = 0;
 
@@ -690,9 +699,13 @@
                     for (let i = 3; i < data.length; i += 4) {
                         data[i] = Math.min(255, Math.floor(data[i] * scale));
                     }
-                    ctx.putImageData(imgData, 0, 0);
+                    offCtx.putImageData(imgData, 0, 0);
                 }
             }
+            
+            // Composite onto main canvas
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(offscreenCanvas, 0, 0);
 
             // 4. Draw Names and Date on Canvas
             ctx.save();
