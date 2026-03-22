@@ -307,10 +307,23 @@
 <div class="timelapse-section">
     <div class="timelapse-controls">
         <div class="control-group">
-            <label for="tlNameSelect">Select Name</label>
+            <label for="tlNameSelect">Select Name (Left side)</label>
             <select id="tlNameSelect">
                 <!-- Populated by JS -->
             </select>
+        </div>
+
+        <div class="control-group">
+            <label for="tlNameSelect2">Select Second Name (Right side)</label>
+            <select id="tlNameSelect2">
+                <option value="">-- None --</option>
+                <!-- Populated by JS -->
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="tlTimeDiff">Time difference (hours)</label>
+            <input type="number" id="tlTimeDiff" min="1" value="3" disabled>
         </div>
 
         <div class="control-group">
@@ -427,11 +440,17 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         // State
-        let currentDrawings = []; // Drawings matching the selected outline
+        let currentFrames = []; // Frames containing { d1, d2, time, dateStr }
         let loadedImages = {}; // url -> HTMLImageElement
         let currentFrame = 0;
         let isPlaying = false;
         let playInterval = null;
+        let isSideBySide = false;
+        let firstD1 = null;
+        let firstD2 = null;
+
+        const nameSelect2 = document.getElementById('tlNameSelect2');
+        const timeDiffInput = document.getElementById('tlTimeDiff');
 
         // 1. Populate Name Select
         const names = {};
@@ -446,25 +465,95 @@
             opt.value = name;
             opt.textContent = name;
             nameSelect.appendChild(opt);
+
+            const opt2 = document.createElement('option');
+            opt2.value = name;
+            opt2.textContent = name;
+            nameSelect2.appendChild(opt2);
         }
 
         // 2. Load images for selected name
         function updateSelectedName() {
-            const selectedName = nameSelect.value;
-            if (!selectedName) return;
+            const selectedName1 = nameSelect.value;
+            const selectedName2 = nameSelect2.value;
+            if (!selectedName1) return;
 
-            // Filter drawings
-            currentDrawings = allDrawings.filter(d => d.name === selectedName);
+            const drawings1 = allDrawings.filter(d => d.name === selectedName1);
+            isSideBySide = selectedName2 !== "";
+            timeDiffInput.disabled = !isSideBySide;
+
+            function parseTime(tStr) {
+                return new Date(tStr.replace(' ', 'T')).getTime();
+            }
+
+            if (isSideBySide) {
+                const drawings2 = allDrawings.filter(d => d.name === selectedName2);
+                firstD1 = drawings1.length > 0 ? drawings1[0] : null;
+                firstD2 = drawings2.length > 0 ? drawings2[0] : null;
+
+                const list1 = drawings1.map(d => ({ ...d, time: parseTime(d.created_at) }));
+                const list2 = drawings2.map(d => ({ ...d, time: parseTime(d.created_at) }));
+                
+                const pairs = [];
+                for(let i=0; i<list1.length; i++) {
+                    for(let j=0; j<list2.length; j++) {
+                        pairs.push({ i, j, diff: Math.abs(list1[i].time - list2[j].time) });
+                    }
+                }
+                pairs.sort((a,b) => a.diff - b.diff);
+
+                const used1 = new Set();
+                const used2 = new Set();
+                currentFrames = [];
+
+                let deltaMs = parseFloat(timeDiffInput.value) * 60 * 60 * 1000;
+                if (isNaN(deltaMs)) deltaMs = 3 * 60 * 60 * 1000;
+
+                for (const p of pairs) {
+                    if (!used1.has(p.i) && !used2.has(p.j)) {
+                        if (p.diff <= deltaMs) {
+                            const earlierObj = list1[p.i].time < list2[p.j].time ? list1[p.i] : list2[p.j];
+                            currentFrames.push({
+                                d1: list1[p.i],
+                                d2: list2[p.j],
+                                time: earlierObj.time,
+                                dateStr: earlierObj.created_at.split(' ')[0]
+                            });
+                            used1.add(p.i);
+                            used2.add(p.j);
+                        }
+                    }
+                }
+
+                for(let i=0; i<list1.length; i++) {
+                    if (!used1.has(i)) {
+                        currentFrames.push({ d1: list1[i], d2: null, time: list1[i].time, dateStr: list1[i].created_at.split(' ')[0] });
+                    }
+                }
+                for(let j=0; j<list2.length; j++) {
+                    if (!used2.has(j)) {
+                        currentFrames.push({ d1: null, d2: list2[j], time: list2[j].time, dateStr: list2[j].created_at.split(' ')[0] });
+                    }
+                }
+                currentFrames.sort((a,b) => a.time - b.time);
+            } else {
+                firstD1 = drawings1.length > 0 ? drawings1[0] : null;
+                firstD2 = null;
+                currentFrames = drawings1.map(d => ({ 
+                    d1: d, d2: null, time: parseTime(d.created_at), dateStr: d.created_at.split(' ')[0] 
+                }));
+                currentFrames.sort((a,b) => a.time - b.time);
+            }
 
             // Adjust moving average max
-            movingAvgSlider.max = Math.max(1, currentDrawings.length);
-            if (parseInt(movingAvgSlider.value) > currentDrawings.length) {
-                movingAvgSlider.value = currentDrawings.length;
+            movingAvgSlider.max = Math.max(1, currentFrames.length);
+            if (parseInt(movingAvgSlider.value) > currentFrames.length) {
+                movingAvgSlider.value = currentFrames.length;
                 movingAvgVal.textContent = movingAvgSlider.value;
             }
 
             // Adjust seek bar max
-            seekBar.max = Math.max(0, currentDrawings.length - 1);
+            seekBar.max = Math.max(0, currentFrames.length - 1);
 
             // Reset state
             currentFrame = 0;
@@ -472,52 +561,94 @@
             updateProgressUI();
 
             // Preload images and sync canvas aspect ratio
-            currentDrawings.forEach((d, i) => {
-                // Preload Drawing
-                if (!loadedImages[d.url]) {
+            currentFrames.forEach((frm, i) => {
+                if (frm.d1 && !loadedImages[frm.d1.url]) {
                     const img = new Image();
                     img.crossOrigin = "anonymous";
-                    img.src = d.url;
+                    img.src = frm.d1.url;
                     img.onload = () => { if (currentFrame === i) drawFrame(i); };
-                    loadedImages[d.url] = img;
+                    loadedImages[frm.d1.url] = img;
                 }
-                // Preload Outline
-                if (!loadedImages[d.outline_url]) {
-                    const oImg = new Image();
-                    oImg.crossOrigin = "anonymous";
-                    oImg.src = d.outline_url;
-                    oImg.onload = () => {
-                        // Sync timelapse canvas aspect ratio based on the first outline loaded
-                        const aspectRatio = oImg.naturalWidth / oImg.naturalHeight;
-                        canvas.width = 800;
-                        canvas.height = 800 / aspectRatio;
-                        if (currentFrame === 0) drawFrame(0);
-                    };
-                    loadedImages[d.outline_url] = oImg;
+                if (frm.d2 && !loadedImages[frm.d2.url]) {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.src = frm.d2.url;
+                    img.onload = () => { if (currentFrame === i) drawFrame(i); };
+                    loadedImages[frm.d2.url] = img;
                 }
             });
+
+            function syncCanvasSize(oImg) {
+                const aspectRatio = oImg.naturalWidth / oImg.naturalHeight;
+                const baseHeight = 800 / aspectRatio;
+                const headerOffset = 40;
+                
+                if (isSideBySide) {
+                    canvas.width = 1600;
+                    canvas.height = baseHeight + headerOffset;
+                    document.querySelector('.timelapse-canvas-wrapper').style.aspectRatio = (1600 / canvas.height).toString();
+                } else {
+                    canvas.width = 800;
+                    canvas.height = baseHeight + headerOffset;
+                    document.querySelector('.timelapse-canvas-wrapper').style.aspectRatio = (800 / canvas.height).toString();
+                }
+                if (currentFrame === 0) drawFrame(0);
+            }
+
+            if (firstD1 && !loadedImages[firstD1.outline_url]) {
+                const oImg = new Image();
+                oImg.crossOrigin = "anonymous";
+                oImg.src = firstD1.outline_url;
+                oImg.onload = () => syncCanvasSize(oImg);
+                loadedImages[firstD1.outline_url] = oImg;
+            } else if (firstD1 && loadedImages[firstD1.outline_url].complete) {
+                syncCanvasSize(loadedImages[firstD1.outline_url]);
+            }
+            
+            if (isSideBySide) {
+                if (firstD2 && !loadedImages[firstD2.outline_url]) {
+                    const oImg = new Image();
+                    oImg.crossOrigin = "anonymous";
+                    oImg.src = firstD2.outline_url;
+                    oImg.onload = () => syncCanvasSize(oImg);
+                    loadedImages[firstD2.outline_url] = oImg;
+                } else if (firstD2 && loadedImages[firstD2.outline_url].complete) {
+                    syncCanvasSize(loadedImages[firstD2.outline_url]);
+                }
+            }
 
             drawFrame(currentFrame);
         }
 
         // 3. Drawing Logic Function
         function drawFrame(index) {
-            if (currentDrawings.length === 0) return;
+            if (currentFrames.length === 0) return;
 
             // Ensure index bounds
             if (index < 0) index = 0;
-            if (index >= currentDrawings.length) index = currentDrawings.length - 1;
+            if (index >= currentFrames.length) index = currentFrames.length - 1;
 
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Fill canvas with white background to prevent transparent black in videos
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const headerOffset = 40;
+            const drawHeight = canvas.height - headerOffset;
+            const halfW = isSideBySide ? canvas.width / 2 : canvas.width;
 
             // 1. Draw Outline background
-            const outlineUrl = currentDrawings[0].outline_url;
-            const outlineImg = loadedImages[outlineUrl];
-            if (outlineImg && outlineImg.complete && outlineImg.naturalHeight !== 0) {
-                ctx.globalAlpha = 1.0;
-                // Draw to fill - aspect ratio is now synced in handleUpdateOutline
-                ctx.drawImage(outlineImg, 0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1.0;
+            if (isSideBySide) {
+                if (firstD1 && loadedImages[firstD1.outline_url] && loadedImages[firstD1.outline_url].complete) {
+                    ctx.drawImage(loadedImages[firstD1.outline_url], 0, headerOffset, halfW, drawHeight);
+                }
+                if (firstD2 && loadedImages[firstD2.outline_url] && loadedImages[firstD2.outline_url].complete) {
+                    ctx.drawImage(loadedImages[firstD2.outline_url], halfW, headerOffset, halfW, drawHeight);
+                }
+            } else {
+                if (firstD1 && loadedImages[firstD1.outline_url] && loadedImages[firstD1.outline_url].complete) {
+                    ctx.drawImage(loadedImages[firstD1.outline_url], 0, headerOffset, halfW, drawHeight);
+                }
             }
 
             const nConfig = parseInt(movingAvgSlider.value);
@@ -526,11 +657,21 @@
 
             // 2. Draw Drawings
             for (let i = startIndex; i <= index; i++) {
-                const drawData = currentDrawings[i];
-                const img = loadedImages[drawData.url];
-                if (img && img.complete && img.naturalHeight !== 0) {
-                    // Draw to fill
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const frm = currentFrames[i];
+                if (isSideBySide) {
+                    if (frm.d1) {
+                        const imgL = loadedImages[frm.d1.url];
+                        if (imgL && imgL.complete) ctx.drawImage(imgL, 0, headerOffset, halfW, drawHeight);
+                    }
+                    if (frm.d2) {
+                        const imgR = loadedImages[frm.d2.url];
+                        if (imgR && imgR.complete) ctx.drawImage(imgR, halfW, headerOffset, halfW, drawHeight);
+                    }
+                } else {
+                    if (frm.d1) {
+                        const img = loadedImages[frm.d1.url];
+                        if (img && img.complete) ctx.drawImage(img, 0, headerOffset, halfW, drawHeight);
+                    }
                 }
             }
 
@@ -553,9 +694,20 @@
                 }
             }
 
-            // 4. Draw Date on Canvas (Lower Right)
-            const dateStr = currentDrawings[index].created_at.split(' ')[0]; // YYYY-MM-DD
+            // 4. Draw Names and Date on Canvas
             ctx.save();
+            ctx.font = "bold 28px Arial";
+            ctx.fillStyle = "#333";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            if (isSideBySide) {
+                ctx.fillText(nameSelect.value, halfW / 2, headerOffset / 2);
+                ctx.fillText(nameSelect2.value, halfW + (halfW / 2), headerOffset / 2);
+            } else {
+                ctx.fillText(nameSelect.value, halfW / 2, headerOffset / 2);
+            }
+            
+            const dateStr = currentFrames[index].dateStr;
             ctx.font = "bold 24px Arial";
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             ctx.textAlign = "right";
@@ -581,19 +733,19 @@
         }
 
         function playVideo() {
-            if (currentDrawings.length <= 1) return;
+            if (currentFrames.length <= 1) return;
             isPlaying = true;
             playBtn.textContent = '⏸';
 
-            if (currentFrame >= currentDrawings.length - 1) {
+            if (currentFrame >= currentFrames.length - 1) {
                 currentFrame = 0; // restart
             }
 
             playInterval = setInterval(() => {
                 currentFrame++;
-                if (currentFrame >= currentDrawings.length) {
+                if (currentFrame >= currentFrames.length) {
                     pauseVideo();
-                    currentFrame = currentDrawings.length - 1;
+                    currentFrame = currentFrames.length - 1;
                 } else {
                     drawFrame(currentFrame);
                 }
@@ -607,7 +759,7 @@
         }
 
         function updateProgressUI() {
-            if (currentDrawings.length === 0) {
+            if (currentFrames.length === 0) {
                 seekBar.value = 0;
                 btnDownloadTimelapse.disabled = true;
                 btnDownloadGif.disabled = true;
@@ -620,18 +772,20 @@
 
 
         function scrubTo(e) {
-            if (currentDrawings.length === 0) return;
+            if (currentFrames.length === 0) return;
             const rect = progressBar.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const pct = Math.max(0, Math.min(1, x / rect.width));
 
-            currentFrame = Math.round(pct * (currentDrawings.length - 1));
+            currentFrame = Math.round(pct * (currentFrames.length - 1));
             pauseVideo(); // pause on manual scrub
             drawFrame(currentFrame);
         }
 
         // 6. Event Listeners
         nameSelect.addEventListener('change', updateSelectedName);
+        nameSelect2.addEventListener('change', updateSelectedName);
+        timeDiffInput.addEventListener('change', updateSelectedName);
 
         movingAvgSlider.addEventListener('input', (e) => {
             movingAvgVal.textContent = e.target.value;
@@ -755,7 +909,7 @@
 
         // --- Video Download Logic ---
         btnDownloadTimelapse.addEventListener('click', async function () {
-            if (currentDrawings.length === 0) return;
+            if (currentFrames.length === 0) return;
 
             // Define supported MIME types, preferring MP4
             const types = [
@@ -807,10 +961,10 @@
 
             const interval = setInterval(() => {
                 currentFrame++;
-                if (currentFrame >= currentDrawings.length) {
+                if (currentFrame >= currentFrames.length) {
                     clearInterval(interval);
                     recorder.stop();
-                    currentFrame = currentDrawings.length - 1;
+                    currentFrame = currentFrames.length - 1;
                     drawFrame(currentFrame);
                     playBtn.disabled = false;
                     btnDownloadTimelapse.disabled = false;
@@ -839,7 +993,7 @@
         }
 
         btnDownloadGif.addEventListener('click', async function () {
-            if (currentDrawings.length === 0) return;
+            if (currentFrames.length === 0) return;
 
             const workerUrl = await getGifWorkerUrl();
 
@@ -861,7 +1015,7 @@
             btnDownloadGif.textContent = 'Generating GIF...';
 
             // Add frames
-            for (let i = 0; i < currentDrawings.length; i++) {
+            for (let i = 0; i < currentFrames.length; i++) {
                 drawFrame(i);
                 gif.addFrame(ctx, { copy: true, delay: 200 }); // 200ms delay between frames
             }
@@ -870,7 +1024,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `timelapse_${outlineSelect.value}.gif`;
+                a.download = `timelapse_${nameSelect.value}.gif`;
                 a.click();
                 URL.revokeObjectURL(url);
 
@@ -888,11 +1042,6 @@
             gif.render();
         });
 
-
-        // Init
-        if (outlineSelect.options.length > 0) {
-            updateSelectedOutline();
-        }
     });
 </script>
 {% endblock %}
