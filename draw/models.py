@@ -26,8 +26,10 @@ class UserProfile(models.Model):
 class Drawing(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     outline = models.ForeignKey(Outline, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(upload_to='drawings/')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Drawing by {self.user.username} on {self.outline.name} at {self.created_at}"
+        d_name = self.name if self.name else f"Drawing on {self.outline.name}"
+        return f"{d_name} by {self.user.username} at {self.created_at}"

@@ -307,7 +307,7 @@
 <div class="timelapse-section">
     <div class="timelapse-controls">
         <div class="control-group">
-            <label for="tlOutlineSelect">Select Outline</label>
+            <label for="tlOutlineSelect">Select Name</label>
             <select id="tlOutlineSelect">
                 <!-- Populated by JS -->
             </select>
@@ -371,7 +371,7 @@
             <img src="{{ drawing.image.url }}" class="drawing-img" alt="Drawing">
         </div>
         <div class="info">
-            {{ drawing.outline.name }}<br>
+            {{ drawing.name|default:drawing.outline.name }}<br>
             {{ drawing.created_at|date:"M d, Y H:i" }}
         </div>
     </div>
@@ -433,28 +433,28 @@
         let isPlaying = false;
         let playInterval = null;
 
-        // 1. Populate Outline Select
-        const outlines = {};
+        // 1. Populate Name Select
+        const names = {};
         allDrawings.forEach(d => {
-            if (!outlines[d.outline_id]) {
-                outlines[d.outline_id] = d.outline_name;
+            if (!names[d.name]) {
+                names[d.name] = d.name;
             }
         });
 
-        for (const [id, name] of Object.entries(outlines)) {
+        for (const [id, name] of Object.entries(names)) {
             const opt = document.createElement('option');
-            opt.value = id;
+            opt.value = name;
             opt.textContent = name;
             outlineSelect.appendChild(opt);
         }
 
-        // 2. Load images for selected outline
+        // 2. Load images for selected name
         function updateSelectedOutline() {
-            const selectedId = outlineSelect.value;
-            if (!selectedId) return;
+            const selectedName = outlineSelect.value;
+            if (!selectedName) return;
 
             // Filter drawings
-            currentDrawings = allDrawings.filter(d => d.outline_id == selectedId);
+            currentDrawings = allDrawings.filter(d => d.name === selectedName);
 
             // Adjust moving average max
             movingAvgSlider.max = Math.max(1, currentDrawings.length);

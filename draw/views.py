@@ -92,7 +92,10 @@ def save_drawing(request):
                 ext = format_str.split('/')[-1]
                 
                 outline = Outline.objects.get(id=outline_id)
-                drawing = Drawing(user=request.user, outline=outline)
+                appendix = data.get('appendix', '')
+                drawing_name = f"{outline.name} {appendix}".strip()
+
+                drawing = Drawing(user=request.user, outline=outline, name=drawing_name)
                 
                 import time
                 filename = f"drawing_{request.user.id}_{outline.id}_{int(time.time())}.{ext}"
@@ -126,10 +129,12 @@ def gallery_view(request):
     # Serialize drawings for the frontend Timelapse feature
     drawings_data = []
     for d in drawings_query:
+        d_name = d.name if d.name else d.outline.name
         drawings_data.append({
             'id': d.id,
             'outline_id': d.outline.id,
             'outline_name': d.outline.name,
+            'name': d_name,
             'outline_url': d.outline.image.url,
             'url': d.image.url,
             'created_at': d.created_at.strftime('%Y-%m-%d %H:%M:%S')
