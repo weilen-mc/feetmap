@@ -307,8 +307,8 @@
 <div class="timelapse-section">
     <div class="timelapse-controls">
         <div class="control-group">
-            <label for="tlOutlineSelect">Select Name</label>
-            <select id="tlOutlineSelect">
+            <label for="tlNameSelect">Select Name</label>
+            <select id="tlNameSelect">
                 <!-- Populated by JS -->
             </select>
         </div>
@@ -413,7 +413,7 @@
         if (allDrawings.length === 0) return;
 
         // UI Elements
-        const outlineSelect = document.getElementById('tlOutlineSelect');
+        const nameSelect = document.getElementById('tlNameSelect');
         const movingAvgSlider = document.getElementById('tlMovingAvg');
         const movingAvgVal = document.getElementById('tlMovingAvgVal');
         const normalizeBtn = document.getElementById('tlNormalizeBtn');
@@ -445,12 +445,12 @@
             const opt = document.createElement('option');
             opt.value = name;
             opt.textContent = name;
-            outlineSelect.appendChild(opt);
+            nameSelect.appendChild(opt);
         }
 
         // 2. Load images for selected name
-        function updateSelectedOutline() {
-            const selectedName = outlineSelect.value;
+        function updateSelectedName() {
+            const selectedName = nameSelect.value;
             if (!selectedName) return;
 
             // Filter drawings
@@ -631,7 +631,7 @@
         }
 
         // 6. Event Listeners
-        outlineSelect.addEventListener('change', updateSelectedOutline);
+        nameSelect.addEventListener('change', updateSelectedName);
 
         movingAvgSlider.addEventListener('input', (e) => {
             movingAvgVal.textContent = e.target.value;
@@ -649,6 +649,9 @@
             pauseVideo(); // pause on manual scrub
             drawFrame(currentFrame);
         });
+
+        // Initialize timelapse canvas with the first option
+        updateSelectedName();
 
         // --- Bulk Actions Logic ---
         const selectAllCheckbox = document.getElementById('selectAll');
@@ -786,7 +789,7 @@
                 a.href = url;
                 // Force .mp4 extension for clarity if it's an MP4 container/codec
                 const extension = selectedType.includes('mp4') || selectedType.includes('h264') ? 'mp4' : 'webm';
-                a.download = `timelapse_${outlineSelect.value}.${extension}`;
+                a.download = `timelapse_${nameSelect.value}.${extension}`;
                 a.click();
                 URL.revokeObjectURL(url);
             };
