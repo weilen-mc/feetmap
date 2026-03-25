@@ -185,10 +185,37 @@
         justify-content: center;
         align-items: center;
     }
-    
+
     .eraser-btn.active {
         border-color: #333;
         box-shadow: 0 0 0 2px #333;
+    }
+
+    #btnSaveBefore {
+        background-color: #0c4c79;
+        color: #ffffff;
+    }
+
+    #btnSaveBefore:hover {
+        background-color: #0a3d62;
+    }
+
+    #btnSaveAfter {
+        background-color: #00a8ff;
+        color: #ffffff;
+    }
+
+    #btnSaveAfter:hover {
+        background-color: #0086cc;
+    }
+
+    #btnDiscard {
+        background-color: #c20303;
+        color: #ffffff;
+    }
+
+    #btnDiscard:hover {
+        background-color: #940101;
     }
 </style>
 
@@ -230,7 +257,8 @@
                     id="outlineImg">
                 <canvas id="drawingCanvas"></canvas>
             </div>
-            <div class="canvas-actions" style="margin-top: 15px; display: flex; gap: 10px; width: 100%; justify-content: flex-end; flex-shrink: 0;">
+            <div class="canvas-actions"
+                style="margin-top: 15px; display: flex; gap: 10px; width: 100%; justify-content: flex-end; flex-shrink: 0;">
                 <button id="btnSaveBefore" class="btn">Save: before</button>
                 <button id="btnSaveAfter" class="btn">Save: after</button>
                 <button id="btnDiscard" class="btn btn-secondary">Discard</button>
@@ -516,29 +544,29 @@
                 body: JSON.stringify({
                     image_data: dataUrl,
                     outline_id: {{ selected_outline.id }},
-                    appendix: appendix
+                appendix: appendix
                 })
             })
             .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    console.log("Drawing saved!");
-                } else {
-                    alert("Error saving drawing: " + (data.error || "Unknown error"));
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Error saving drawing.");
-            });
-            {% else %}
-            alert("Please select an outline first.");
-            {% endif %}
+        .then(data => {
+            if (data.success) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                console.log("Drawing saved!");
+            } else {
+                alert("Error saving drawing: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error saving drawing.");
+        });
+    {% else %}
+    alert("Please select an outline first.");
+    {% endif %}
         }
 
-        btnSaveBefore.addEventListener('click', () => saveDrawing('(before)'));
-        btnSaveAfter.addEventListener('click', () => saveDrawing('(after)'));
+    btnSaveBefore.addEventListener('click', () => saveDrawing('(before)'));
+    btnSaveAfter.addEventListener('click', () => saveDrawing('(after)'));
 
     // Initial render
     renderFavorites();
